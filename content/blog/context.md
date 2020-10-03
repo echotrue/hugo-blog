@@ -172,4 +172,39 @@ func main() {
 ```
 
 ##### 超时取消
+```
+func func1(ctx context.Context) {
+    hctx, hcancel := context.WithTimeout(ctx, time.Second*4)
+    defer hcancel()
+    
+    resp := make(chan struct{}, 1)
+    
+    go func() {
+        // 处理耗时操作
+        time.Sleep(time.Second * 10)
+        resp <- struct{}{}
+    }()
+    
+    select {
+    // case <-ctx.Done():
+    // 	fmt.Println("ctx timeout")
+    // 	fmt.Println("退出",ctx.Err())
+    case <-hctx.Done():
+        fmt.Println("hctx timeout")
+        fmt.Println(hctx.Err())
+    case v := <-resp:
+        fmt.Println("test2 function handle done")
+        fmt.Printf("result:%v\n", v)
+    }
+    fmt.Println("test2 finish")
+    fmt.Println(time.Now().Unix())
+    return
+}
 
+func main() {
+    fmt.Println(time.Now().Unix())
+    ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+    defer cancel()
+    func1(ctx)
+}
+```
