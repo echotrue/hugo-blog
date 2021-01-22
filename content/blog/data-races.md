@@ -2,10 +2,14 @@
 title: "Golang Data Races"
 date: 2020年10月3日11:12:05
 draft: false
-tags:        [ "Go","并发","数据竞争"]
+tags:        [ "Go","并发","数据竞争","并发安全","not concurrency-safety","concurrency-safety"]
 categories :      [ "Go"]
 ---
 
+### 关于Golang并发安全
+
+1. [谈谈go语言编程的并发安全](http://yanyiwu.com/work/2015/02/07/golang-concurrency-safety.html)
+2. [Benign Data Races: What Could Possibly Go Wrong?](https://software.intel.com/content/www/us/en/develop/blogs/benign-data-races-what-could-possibly-go-wrong.html)
 
 ### 什么是数据竞争
 
