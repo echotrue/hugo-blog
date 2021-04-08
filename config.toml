@@ -4,7 +4,7 @@ defaultContentLanguage = "en"
 title = "Axlrose's blog"
 
 theme = "hugo-theme-learn"
-copyright = "©2020 my name."
+copyright = "Axlrose"
 
 [outputs]
 home = ["HTML","RSS","JSON"]
@@ -32,9 +32,9 @@ home = ["HTML","RSS","JSON"]
   # When using mulitlingual website, disable the switch language button.
   disableLanguageSwitchingButton = true
   # Hide breadcrumbs in the header and only show the current page title
-  disableBreadcrumb = true
+  disableBreadcrumb = false
   # Hide Next and Previous page buttons normally displayed full height beside content
-  disableNextPrev = true
+  disableNextPrev = false
   # Order sections in menu by "weight" or "title". Default to "weight"
   ordersectionsby = "weight"
   # Change default color scheme with a variant one. Can be "red", "blue", "green".
@@ -50,26 +50,27 @@ weight = 1
 languageName = "English"
 
 [[Languages.en.menu.shortcuts]]
+name = "<i class='fas fa-tags'></i> Tags list"
+url = "/tags"
+weight = 1
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fas fa-fw fa-camera'></i> About me"
+url = "/about"
+weight = 2
+
+[[Languages.en.menu.shortcuts]]
 name = "<i class='fab fa-fw fa-github'></i> GitHub repo"
 identifier = "ds"
 url = "https://github.com/matcornic/hugo-theme-learn"
-weight = 10
-
-[[Languages.en.menu.shortcuts]]
-name = "<i class='fas fa-fw fa-camera'></i> Showcases"
-url = "showcase"
-weight = 11
+weight = 3
 
 [[Languages.en.menu.shortcuts]]
 name = "<i class='fas fa-fw fa-bookmark'></i> Hugo Documentation"
 identifier = "hugodoc"
 url = "https://gohugo.io/"
-weight = 20
+weight = 4
 
-[[Languages.en.menu.shortcuts]]
-name = "<i class='fas fa-fw fa-bullhorn'></i> Credits"
-url = "/credits"
-weight = 30
 
 #===========================================================法文
 [Languages.fr]

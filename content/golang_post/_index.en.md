@@ -1,5 +1,5 @@
 ---
-title: Blog
+title: Golang
 weight: 1
 pre: "<b>1. </b>"
 chapter: true

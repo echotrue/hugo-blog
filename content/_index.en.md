@@ -1,5 +1,5 @@
 ---
-title: "Learn Theme for Hugo"
+title: "Axlrose"
 ---
 
 # Hugo learn theme
