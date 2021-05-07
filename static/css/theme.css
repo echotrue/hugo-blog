@@ -43,7 +43,7 @@ body {
     color: #777;
 }
 body #chapter h1 {
-    font-size: 3.5rem;
+    font-size: 2.5rem;
 }
 @media only all and (min-width: 48em) and (max-width: 59.938em) {
     body #chapter h1 {
@@ -471,7 +471,7 @@ blockquote {
     border-left: 10px solid #F0F2F4;
 }
 blockquote p {
-    font-size: 1.1rem;
+    font-size: 1.0rem;
     color: #999;
 }
 blockquote cite {
