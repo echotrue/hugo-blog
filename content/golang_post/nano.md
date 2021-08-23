@@ -170,7 +170,7 @@ type MemberServer interface {
 
 - 如果当前不是主服务器节点，根据主服务器Master的RPC地址`node.AdvertiseAddr`创建连接池，并获取连接。然后创建gRPC客户端。将当前节点成员信息通过主服务器的`Register`服务发送到集群的主服务器`Master`.主服务器节点的`cluster.Register()`接收注册请求,然后将新加入的节点成员信息通过`NewMember`事件发送到各个非Master节点，并将新加的节点成员信息添加到集群的成员列表，同时将新加节点成员中的所有服务添加到集群的`handle`中。并响应此时集群中所有服务给新节点。当前节点拿到集群中所有其他成员信息后，首先将这些远程的服务添加到当前节点`handler`的远程服务列表中。然后将这些远程节点成员添加到当前节点的集群的成员列表中
 
-因此，Master主服务器节点上注册了`MemberServer`和`MasterServer`两组服务。而非Master节点服务器上只注册了`MemberServer`一组服务。
+因此，Master主服务器节点上注册了`MemberServer`和`MasterServer`两组服务。而非Master节点服务器上只注册了`MemberServer`一组服务。详见[Node实现的服务列表](#node实现的服务列表)和[Cluster实现的服务列表](#cluster实现的服务列表)
 
 ## Initialize all components
 依次执行当前节点下所有组件的`Init()`和`AfterInit()`两个生命周期函数
