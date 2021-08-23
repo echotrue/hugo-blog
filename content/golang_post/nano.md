@@ -50,7 +50,7 @@ type Options struct {
 }
 ```
 
-#### Start Node
+## Start Node
 - 初始化配置
 设置集群的`Options`选项。其中`Options.Components`类型定义了一个组件切片`comps`，这个切片的类型是`CompWithOptions`，其中`Comp`是组件，`Opts`是该组件的属性。
 ```Go
@@ -139,9 +139,9 @@ func (h *LocalHandler) register(comp component.Component, opts []component.Optio
 
 `cache()`定义了握手响应数据和心跳包数据
 
-## initNode
+### initNode
 
-### init gRPC and register service
+#### init gRPC and register service
 
 `n.server = grpc.NewServer()`创建一个`gRPC`服务器。此时该服务器上没有注册任何服务，也没有开始接收请求。
 
@@ -172,14 +172,14 @@ type MemberServer interface {
 
 因此，Master主服务器节点上注册了`MemberServer`和`MasterServer`两组服务。而非Master节点服务器上只注册了`MemberServer`一组服务。详见[Node实现的服务列表](#node实现的服务列表)和[Cluster实现的服务列表](#cluster实现的服务列表)
 
-## Initialize all components
+### Initialize all components
 依次执行当前节点下所有组件的`Init()`和`AfterInit()`两个生命周期函数
 
-## Listen client address
+### Listen client address
 如果设置了`node.ClientAddr`地址，则开始监听并接收请求。`node.ClientAddr`是暴露给外部供外部访问的地址。
 
 
-## Node实现的服务列表
+### Node实现的服务列表
 ```Go
 type MemberServer interface {  
 	HandleRequest(context.Context, *RequestMessage) (*MemberHandleResponse, error)  
@@ -194,13 +194,16 @@ type MemberServer interface {
 ```
 
 
-## Cluster实现的服务列表
+### Cluster实现的服务列表
 ```Go
 type MasterServer interface {  
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)  
 	Unregister(context.Context, *UnregisterRequest) (*UnregisterResponse, error)  
 }
 ```
+
+## Scheduler
+启动节点后，开启一个`goroutine`执行`go scheduler.Sched()`.
 
 
 ## Websocket request
@@ -264,6 +267,8 @@ defer func() {
 - Kick = 0x05 disconnect message from server
 
 `Handshake`和`HandshakeAck`类型分别为设置当前`UserAgent`的状态为`statusHandshake`和`statusWorking`.`Data`类型数据会解码数据包中的`Data`字段并交给`processMessage()`处理。然后更新`agent.lastAt`为当前时间。
+
+循环读取消息失败时，会执行defer延迟函数。依次通知其他节点当前连接关闭。然后关闭当前连接。
 
 ### LocalHandler.processMessage()
 `message`的类型包含：Request/Notify/Response/Push。分别代表请求/通知/响应/推送。
