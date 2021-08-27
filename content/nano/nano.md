@@ -1,6 +1,7 @@
 ---
 title: "Nano"
 date: 2021-08-14T16:19:29+08:00
+weight: 1
 draft: false
 ---
 
@@ -91,6 +92,8 @@ type LocalHandler struct {
 	currentNode *Node  
 }
 ```
+
+### install service and handler
 
 接下来将上面组件切片中组件依次注册到节点的handle中。这里的组件被定义为`Service`类型，组件中的方法被定义为`Handler`类型。`Service`实现了一个特定服务，该服务下的方法将在对应事件触发是被调用。
 
@@ -202,9 +205,10 @@ type MasterServer interface {
 }
 ```
 
-## Scheduler
+## Scheduler  todo
 启动节点后，开启一个`goroutine`执行`go scheduler.Sched()`.
 
+## Pipeline todo
 
 ## Websocket request
 
@@ -266,12 +270,13 @@ defer func() {
 - Data = 0x04 通用数据包
 - Kick = 0x05 disconnect message from server
 
+其中通用数据包是`message.Message`类型的。`message`的类型包含：Request/Notify/Response/Push。分别代表请求/通知/响应/推送。
+
 `Handshake`和`HandshakeAck`类型分别为设置当前`UserAgent`的状态为`statusHandshake`和`statusWorking`.`Data`类型数据会解码数据包中的`Data`字段并交给`processMessage()`处理。然后更新`agent.lastAt`为当前时间。
 
 循环读取消息失败时，会执行defer延迟函数。依次通知其他节点当前连接关闭。然后关闭当前连接。
 
 ### LocalHandler.processMessage()
-`message`的类型包含：Request/Notify/Response/Push。分别代表请求/通知/响应/推送。
 
 判断`message.Route`是否是本地服务列表中。如果是本地服务进入`localProcess()` 反之进入`remoteProcess()`。
 
