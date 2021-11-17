@@ -1,13 +1,13 @@
 +++
 title = "Game"
 date = 2021-09-07T13:46:08+08:00
-weight = 5
+weight = 4
 chapter = true
-pre = "<b>X. </b>"
+pre = "<b>4. </b>"
 +++
 
-### Chapter Game
+### Chapter 4
 
-# Some Chapter title
+# Game Server
 
-Lorem Ipsum.
+{{% children style="div" showhidden=true %}}
