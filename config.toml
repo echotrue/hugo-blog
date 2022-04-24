@@ -50,6 +50,11 @@ weight = 1
 languageName = "English"
 
 [[Languages.en.menu.shortcuts]]
+name = "<i class='fas fa-solid fa-book-open'></i> Book list"
+url = "/book"
+weight = 1
+
+[[Languages.en.menu.shortcuts]]
 name = "<i class='fas fa-tags'></i> Tags list"
 url = "/tags"
 weight = 1
