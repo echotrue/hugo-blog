@@ -58,6 +58,23 @@ result := db.MustExec(schema, "Hong Kong", 852)
 
 #### Query
 
+```Go
+// fetch all places from the db
+rows, err := db.Query("SELECT country, city, telcode FROM place")
+
+// iterate over each row
+for rows.Next() {
+	var country string
+	// note that city can be NULL, so we use the NullString type
+	var city sql.NullString
+	var telcode int
+	err = rows.Scan(&country, &city, &telcode)
+}
+// check the error from rows
+err = rows.Err()
+```
+
+应该像数据库游标一样看待`Rows`，而不是将其看作一个具体的结果集。尽管数据库驱动缓冲行为有所不同，但是通过`Next()`迭代能够有效的约束大型查询结果集的内存使用，因为一次只扫描一行。`Scan()`通过反射来将数据库列的类型映射到`Go`的类型，例如：string,[]byte等等。如果不迭代所有行的结果，请确保调用`rows.Close()`以便将连接返回到连接池。
 #### QueryRow
 #### Get and Select
 
