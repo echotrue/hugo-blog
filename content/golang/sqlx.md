@@ -135,7 +135,7 @@ err = tx.Commit()
 `Tx`对象实际并不意味着在服务器上的任何行为，它只是执行了`begin`语句并绑定了单个连接。事务的实际行为，诸如：锁定和隔离等，在此不做具体说明，这些依赖于数据库。
 
 ### Prepared Statement （预处理语句）
-在大多数数据库中，每当查询被执行时，语句会在后台被预处理。然后，你可以使用`sqlx.DB.Prepare()`显式的预处理语句，以便在其他地方可以重复使用。
+在大多数数据库中，每当查询被执行时，语句会在后台被预处理。然而，你可以使用`sqlx.DB.Prepare()`显式的预处理语句，以便在其他地方可以重复使用。
 ```Go
 stmt, err := db.Prepare(`SELECT * FROM place WHERE telcode=?`)
 row = stmt.QueryRow(65)
@@ -145,7 +145,17 @@ txStmt, err := tx.Prepare(`SELECT * FROM place WHERE telcode=?`)
 row = txStmt.QueryRow(852)
 ```
 
-
+`Prepare`实际会在数据库执行预处理操作，所以，它需要占用一个链接。`database/sql`会抽象这一点：通过自动在新的链接上执行预处理操作，允许你使用同一个`Stmt`对象同时在多个连接上执行语句。`Preparex()`返回一个`sqlx.Stmt`对象，它拥有`sqlx.DB`和`sqlx.Tx`两个扩展的所有行为。
+```Go
+stmt, err := db.Preparex(`SELECT * FROM place WHERE telcode=?`)
+var p Place
+err = stmt.Get(&p, 852)
+```
+标准的`sql.Tx`对象也有一个`Stmt()`方法，它从一个已存在的`Stmt`对象中返回一个用于事务的特定`Stmt`对象。`sqlx.Tx`也有一个`Stmtx`的版本，它从一个已存在的`sql.Stmt`或`sqlx.Stmt`对象中创建一个用于事务的特定`sqlx.Stmt`对象。
+关于`Stmt`对象，可参考`pkg.go.dev`中`database/sql`文档中的阶段概述：
+> Stmt is a prepared statement. A Stmt is safe for concurrent use by multiple goroutines.
+> If a Stmt is prepared on a Tx or Conn, it will be bound to a single underlying connection forever. If the Tx or Conn closes, the Stmt will become unusable and all operations will return an error. If a Stmt is prepared on a DB, it will remain usable for the lifetime of the DB. When the Stmt needs to execute on a new underlying connection, it will prepare itself on the new connection automatically.
+### Query Helpers
 
 
 
