@@ -156,7 +156,90 @@ err = stmt.Get(&p, 852)
 > Stmt is a prepared statement. A Stmt is safe for concurrent use by multiple goroutines.
 > If a Stmt is prepared on a Tx or Conn, it will be bound to a single underlying connection forever. If the Tx or Conn closes, the Stmt will become unusable and all operations will return an error. If a Stmt is prepared on a DB, it will remain usable for the lifetime of the DB. When the Stmt needs to execute on a new underlying connection, it will prepare itself on the new connection automatically.
 ### Query Helpers
+`database/sql`包不对查询语句文本做任何封装操作。这使得在`sql`代码中使用特定于后端的特性变得琐碎。你可以像在数据库中一样迅速的编写查询语句。虽然这很灵活，但是在编写某些类型的查询语句变得困难。
 
+#### In Queries
+```Go
+var levels = []int{4, 6, 7}
+query, args, err := sqlx.In("SELECT * FROM users WHERE level IN (?);", levels)
+ 
+// sqlx.In returns queries with the `?` bindvar, we can rebind it for our backend
+query = db.Rebind(query)
+rows, err := db.Query(query, args...)
+```
+`db.Rebind`可以用来获取适用于你的数据库驱动的`query`格式。例如：MySQL使用`?`作为占位符，而SQLite则可以使用`?`和`$1`作为占位符。具体参考`bindvars`章节
 
+#### Named Queries
+命名查询，通过映射到结构体字段名或者`map`的`key`来绑定变量到查询。不必映射所有字段。他包含两个与命名查询相关的查询动作：
+- NamedQuery(...) (*sqlx.Rows, error) - like Queryx, but with named bindvars
+- NamedExec(...) (sql.Result, error) - like Exec, but with named bindvars
+和一个额外引用类型查询动作：
+- NamedStmt - an sqlx.Stmt which can be prepared with named bindvars
 
+使用示例：
+```Go
+// named query with a struct
+p := Place{Country: "South Africa"}
+rows, err := db.NamedQuery(`SELECT * FROM place WHERE country=:country`, p)
+ 
+// named query with a map
+m := map[string]interface{}{"city": "Johannesburg"}
+result, err := db.NamedExec(`SELECT * FROM place WHERE city=:city`, m)
+```
+查询所有结果集：
+```Go
+p := Place{TelephoneCode: 50}
+pp := []Place{}
+ 
+// select all telcodes > 50
+nstmt, err := db.PrepareNamed(`SELECT * FROM place WHERE telcode > :telcode`)
+err = nstmt.Select(&pp, p)
+
+```
+命名查询通过解析`:param`语法并将其替换为底层数据库支持的占位符，然后在执行的时候映射查询条件。所以它适用于所有`sqlx`支持的数据库。你也可以使用`sqlx.Named`，他使用`?`占位符，并且可以和`sqlx.In`组合使用。
+```Go
+arg := map[string]interface{}{
+    "published": true,
+    "authors": []{8, 19, 32, 44},
+}
+query, args, err := sqlx.Named("SELECT * FROM articles WHERE published=:published AND author_id IN (:authors)", arg)
+query, args, err := sqlx.In(query, args...)
+query = db.Rebind(query)
+db.Query(query, args...)
+```
+
+### Advanced Scanning
+`StructScan`看似复杂。他支持结构体嵌套，并且使用与`Go`的属性嵌套及方法访问相同的优先级规则分配字段。一个常见的用法是在多个表之间共享表模型的公共部分。
+```Go
+type AutoIncr struct {
+    ID       uint64
+    Created  time.Time
+}
+ 
+type Place struct {
+    Address string
+    AutoIncr
+}
+ 
+type Person struct {
+    Name string
+    AutoIncr
+}
+```
+上面的代码中：`Person`和`Place`将都可以从`StructScan`接收`id`和`created`列的值，因为他们都嵌套了`AutoIncr`结构体。这个特性可以让你快速的为链表查询创建临时表。他可以递归的工作。下面的`Employee`结构体拥有`Person`的`Name`字段以及`AutoIncr`的 `ID`和`Created`字段的访问权限。
+```Go
+type Employee struct {
+    BossID uint64
+    EmployeeID uint64
+    Person
+}
+```
+注意：`sqlx`历史版本为非嵌入式结构体支持此特性，这使得开发者感到困惑。因为有用户利用此特性定义关系并嵌入相同的结构体两次：
+```Go
+type Child struct {
+    Father Person
+    Mother Person
+}
+```
+这回引起一些问题。在Go中隐藏派生字段是合法的.如果上面的`Employee`定义了`Name`字段，他的优先级将会高于`Person`结构体的`Name`字段。但是模糊的选择器是非法的且会引起运行时错误。如果我们想要为`Person`和`Place`快速的创建链表查询，我们应该将`id`定义到哪里？是他们两个结构体都嵌入的`AutoIncr`结构体中？这是否会有错误？
 
