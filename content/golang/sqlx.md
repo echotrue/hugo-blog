@@ -241,5 +241,95 @@ type Child struct {
     Mother Person
 }
 ```
-这回引起一些问题。在Go中隐藏派生字段是合法的.如果上面的`Employee`定义了`Name`字段，他的优先级将会高于`Person`结构体的`Name`字段。但是模糊的选择器是非法的且会引起运行时错误。如果我们想要为`Person`和`Place`快速的创建链表查询，我们应该将`id`定义到哪里？是他们两个结构体都嵌入的`AutoIncr`结构体中？这是否会有错误？
+这会引起一些问题。在Go中隐藏派生字段是合法的.如果上面的`Employee`定义了`Name`字段，他的优先级将会高于`Person`结构体的`Name`字段。但是模糊的选择器是非法的且会引起运行时错误。如果我们想要为`Person`和`Place`快速的创建链表查询，我们应该将`id`定义到哪里？是他们两个结构体都嵌入的`AutoIncr`结构体中？这是否会有错误？
+由于`sqlx`构建字段名到字段地址的映射方式，当你扫描数据到结构体时，它并不知道在遍历结构体树的过程中是否遇到了同一个字段名两次。所以，与Go不同，`StructScan`将会选择首次遇到的这个字段。由于Go结构体字段是从上到下排序，并且`sqlx`使用广度优先原则便利以维持优先级原则，因此`StructScan`使用最浅层（多层嵌套情况下），且最前面的定义的字段。
+例如：在以下结构体中，`StructScan`会将`id`列的值赋给`Persion.AutoIncr.ID`,也可以通过`Persion.ID`来访问。为了避免混淆，建议在你的SQL种使用`AS`关键字为列设置别名。
+```Go
+type PersonPlace struct {
+    Person
+    Place
+}
+```
 
+#### Scan Destination Safety
+通常情况下，如果列的值不能映射到目标数据结构的字段上，`StructScan`会返回一个错误。这模仿了Go中对未使用变量的处理方式，但是与标准库编码解码包例如：`encoding/json`不同。因为SQL通常以比解析`JSON`更可控的方式执行，这些错误通常是编码错误，默认情况下会返回错误。
+像未使用的变量一样，你忽略的列是对网络和数据库资源的浪费，并且，在没有映射器告诉你一些东西未找到的情况下，尽早的检测出不兼容的映射和结构体标签中的错别字是非常困难的。
+尽管如此，在某些情况下需要忽略没有目标结构的列。为此，每一种引用类型都实现了一个`Unsafe`方法，它返回这个引用的拷贝，这份拷贝关闭了安全功能。
+Unsafe()方法说明：
+```Go
+// Unsafe returns a version of DB which will silently succeed to scan when
+// columns in the SQL result have no fields in the destination struct.
+// sqlx.Stmt and sqlx.Tx which are created from this DB will inherit its
+// safety behavior.
+func (db *DB) Unsafe() *DB {
+	return &DB{DB: db.DB, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
+}
+```
+Usage：
+```Go
+var p Person
+// err here is not nil because there are no field destinations for columns in `place`
+err = db.Get(&p, "SELECT * FROM person, place LIMIT 1;")
+
+// this will NOT return an error, even though place columns have no destination
+udb := db.Unsafe()
+err = udb.Get(&p, "SELECT * FROM person, place LIMIT 1;")
+```
+
+#### Controlling Name Mappint
+用作`StructScan`目标的结构体字段必须大写才能被`sqlx`访问。因此，`sqlx`使用`NameMapper`将`strings.ToLower`应用到字段名以映射他们到查询的结果的列。这并不总是可取的，依赖于数据库对象，所以`sqlx`允许通过多种方式自定义映射。
+最简单的一种方式就是通过`sqlx.DB.MapperFunc`为引用类型设置映射，改方法接受一个`func(string)string`类型的参数。如果你的库需要特定的映射器，并且你不想污染`sqlx.DB`，你可以创建一个`DB`拷贝用于特定映射场景。
+```Go
+// if our db schema uses ALLCAPS columns, we can use normal fields
+db.MapperFunc(strings.ToUpper)
+
+// suppose a library uses lowercase columns, we can create a copy
+copy := sqlx.NewDb(db.DB, db.DriverName())
+copy.MapperFunc(strings.ToLower)
+
+```
+`sqlx.DB`使用 `sqlx/reflectx`包的 `Mapper` 来实现底层的映射逻辑，并且通过 `sqlx.DB.Mapper`导出当前活跃的映射器。你可以通过直接设置来自定义数据库上的映射器：
+```Go
+import "github.com/jmoiron/sqlx/reflectx"
+
+// Create a new mapper which will use the struct field tag "json" instead of "db"
+db.Mapper = reflectx.NewMapperFunc("json", strings.ToLower)
+```
+
+#### Alternate Scan Types
+除了使用 `StructScan` 和 `Scan` ,`sqlx`的查询行结果也可以返回切片或 `map`集合：
+```Go
+rows, err := db.Queryx("SELECT * FROM place")
+for rows.Next() {
+    // cols is an []interface{} of all of the column results
+    cols, err := rows.SliceScan()
+}
+
+rows, err := db.Queryx("SELECT * FROM place")
+for rows.Next() {
+    results := make(map[string]interface{})
+    err = rows.MapScan(results)
+}
+```
+`SliceScan`一般使用在你不知道会返回哪些字段的情况下。`MapScan`与之相同，但 `MapScan`将列映射到 `interface{}`类型值上。这里需要重点注意的是， `rows.Columns()`返回的结果不包含完整的名称。例如：
+```Go
+SELECT a.id, b.id FROM a NATURAL JOIN b
+```
+将会导致一个 `[]string{"id","id"}`格式的列结果，这破坏了你的map中的一个结果。
+
+### Custom Types
+上面的列子都使用了内置类型来扫描或者查询，但是 `database/sql` 提供了接口允许你使用自定义的类型：
+- sql.Scanner allows you to use custom types in a Scan()
+- driver.Valuer allows you to use custom types in a Query/QueryRow/Exec
+这些是标准的接口，使用他们可以确保在 `database/sql` 上提供的服务可以移植到任何库。具体如何使用请参考 [Built In Interfaces](http://jmoiron.net/blog/built-in-interfaces) 这篇文章，或者查看 `sqlx/types` 包，改包实现了一些标准的实用类型。
+
+### The Connection Pool
+准备语句和查询的执行都需要连接，`DB`对象会管理一个连接池，以保证它可以进行安全的并发查询。有两种方法可以控制连接池的大小：
+- DB.SetMaxIdleConns(n int)
+- DB.SetMaxOpenConns(n int)
+默认情况下，池子可以无限增长，并且只要池中没有可用连接，就会创建一个连接。你可以使用 `DB.SetMaxOpenConns`设置最大连接数。未使用的连接会被标记为空闲，如果他们不被需要将会被关闭。为避免建立和关闭大量连接，使用 `DB.SetMaxIdleConns` 将最大空闲连接数设置为适合你查询负载的大小是一种明智的选择。
+很容易陷入阻塞连接的困境中，为了防止这种情况：
+- 确保 `Scan()` 每个row对象
+- 确保通过 `Next()`对每个Rows对象进行完整迭代或调用`Close()`
+- 确保每一个事务都通过 `Commit()` 或 `Rollback()` 返回连接
+如果你忘记这些操作，连接将会一直阻塞直到被 `GC` 回收，并且你的数据库会立刻停止建立更多的连接，以此抵消当前正在使用的这个链接。注意 `Rows.Close()` 可以被多次安全的调用，所以不用担心在不需要的地方调用它。
